@@ -12,6 +12,7 @@ Validate the source contract with `npm run validate:openapi`, or validate a depl
 | GET `/jobs/:id` | 200 | Job, upload metadata, requested settings, audit, original/result preview URLs |
 | GET `/jobs/:id/events` | 200 | SSE `event: job`, JSON snapshot every 2 seconds; closes at terminal state or 120s |
 | GET `/jobs/:id/download` | 200 | Completed only: `{url,expiresIn:300}` |
+| POST `/jobs/:id/edit` | 202 | Completed result only; `{transformations:{...}}`; creates a separate asynchronous job from the current result |
 | POST `/jobs/:id/retry` | 202 | Failed only; atomic generation increment; new queued Job |
 | POST `/jobs/:id/cancel` | 409 | Safely unsupported, with explicit explanation |
 | GET `/dashboard/stats` | 200 | DB totals/status counts, average duration, real queue counts, connected consumers, seven-day activity, limits |
@@ -27,6 +28,8 @@ Validate the source contract with `npm run validate:openapi`, or validate a depl
 ```
 
 Width/height optional, integers 1–8192; explicit output size capped at 25 MP, and worker enforces configurable decoded/output pixel limit. Quality 1–100, default 82. Format `jpeg|png|webp`, default WebP. Rotation `0|90|180|270` clockwise. Watermark optional, at most 80 characters. Unknown transformation keys are rejected. Duplicate upload IDs within one request are deduplicated. Separate submissions intentionally create separate jobs; this API does not provide client request-idempotency headers.
+
+Editing a completed result copies its private output into the originals bucket and submits a new job with the supplied transformation settings. Each edit is independent: it does not replace the source job or its downloadable result, and another edit can be made from the new result after it completes. Expired results cannot be edited.
 
 Files must have matching extension, multipart MIME and decoded signature, with JPEG, PNG or WebP content. Default size 10 MB each (configurable up to 25 MB), eight files maximum, single frame, default 25 MP. Client fields cannot select object keys, buckets, filesystem paths or external fetch URLs. The API reads metadata with Sharp; Python subsequently verifies the full image, so corruption discovered during processing becomes a permanent failed job. Do not label metadata-only validation a complete decode.
 

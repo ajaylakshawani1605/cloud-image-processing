@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import sharp from 'sharp';
+import { CopyObjectCommand } from '@aws-sdk/client-s3';
 import SwaggerParser from '@apidevtools/swagger-parser';
 const mocks=vi.hoisted(()=>({db:{upload:{create:vi.fn(),findMany:vi.fn()},job:{create:vi.fn(),findUnique:vi.fn(),findMany:vi.fn(),count:vi.fn(),updateMany:vi.fn()},auditEvent:{create:vi.fn()},$transaction:vi.fn()},s3:{send:vi.fn()},queue:{getJobCounts:vi.fn()},log:{warn:vi.fn()}}));
 vi.mock('../backend/src/runtime.js',()=>({...mocks,redis:{ping:vi.fn()},signed:vi.fn().mockResolvedValue('http://localhost:9000/private?signature=test')}));
@@ -20,6 +21,24 @@ describe('HTTP boundaries and asynchronous acceptance',()=>{
   it('cleans up stored objects when metadata persistence fails and hides internal details',async()=>{const buffer=await sharp({create:{width:32,height:16,channels:3,background:'red'}}).png().toBuffer();mocks.db.upload.create.mockRejectedValue(new Error('secret-password-in-database-error'));const r=await request(app).post('/api/v1/images/upload').attach('images',buffer,{filename:'photo.png',contentType:'image/png'});expect(r.status).toBe(503);expect(JSON.stringify(r.body)).not.toContain('secret-password');expect(mocks.s3.send).toHaveBeenCalledTimes(2);});
   it('returns 409 for downloads before completion',async()=>{mocks.db.job.findUnique.mockResolvedValue(job);expect((await request(app).get(`/api/v1/jobs/${id}/download`)).status).toBe(409);});
   it('signs downloads only for completed results',async()=>{mocks.db.job.findUnique.mockResolvedValue({...job,status:'completed',outputKey:'private/result.webp',completedAt:new Date()});const r=await request(app).get(`/api/v1/jobs/${id}/download`);expect(r.status).toBe(200);expect(r.body.expiresIn).toBe(300);});
+  it('creates an asynchronous edit job from a completed result without changing its source',async()=>{
+    const source={...job,status:'completed',outputKey:'private/result.webp',outputMetadata:{width:32,height:16,size:80,format:'webp',mime:'image/webp'},completedAt:new Date()};
+    const editedUpload={...upload,id:'1d8da9be-426f-45d9-8499-dad6ed71b559',objectKey:'edits/source/source.webp'};
+    mocks.db.job.findUnique.mockResolvedValue(source);mocks.db.upload.create.mockResolvedValue(editedUpload);
+    mocks.db.job.create.mockResolvedValue({...job,upload:editedUpload});
+    const r=await request(app).post(`/api/v1/jobs/${id}/edit`).send({transformations:{format:'webp',quality:60}});
+    expect(r.status).toBe(202);expect(r.body.job.status).toBe('queued');expect(r.body.job.upload.objectKey).toBeUndefined();
+    expect(mocks.s3.send).toHaveBeenCalledOnce();
+    const copy=mocks.s3.send.mock.calls[0][0];
+    expect(copy).toBeInstanceOf(CopyObjectCommand);
+    expect(copy.input).toMatchObject({Bucket:'originals',CopySource:'processed/private/result.webp'});
+    expect(mocks.db.job.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({transformations:expect.objectContaining({quality:60})})}));
+  });
+  it('rejects editing results that are not complete',async()=>{
+    mocks.db.job.findUnique.mockResolvedValue(job);
+    expect((await request(app).post(`/api/v1/jobs/${id}/edit`).send({transformations:{quality:60}})).status).toBe(409);
+    expect(mocks.s3.send).not.toHaveBeenCalled();expect(mocks.db.upload.create).not.toHaveBeenCalled();
+  });
   it('rejects retry if a job is not terminally failed',async()=>{mocks.db.job.updateMany.mockResolvedValue({count:0});expect((await request(app).post(`/api/v1/jobs/${id}/retry`)).status).toBe(409);});
   it('rejects unsafe dimensions and pagination abuse',async()=>{expect((await request(app).get('/api/v1/jobs?limit=10000')).status).toBe(400);expect((await request(app).post('/api/v1/jobs').send({uploadIds:[id],transformations:{width:8192,height:8192}})).status).toBe(400);});
   it('serves a parser-valid OpenAPI document with schemas and all REST resources',async()=>{const {status,body}=await request(app).get('/api/v1/openapi.json');expect(status).toBe(200);await SwaggerParser.validate(body,{resolve:{external:false}});expect(body.openapi).toBe('3.0.3');expect(body.components.schemas.Job).toBeDefined();expect(body.paths['/jobs'].post.responses['202']).toBeDefined();expect(body.paths['/jobs/{id}/events']).toBeDefined();});

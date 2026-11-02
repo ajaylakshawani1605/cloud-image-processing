@@ -94,6 +94,13 @@ export const openapi = {
       parameters:id,
       get:operation('Private download URL for a completed result',object({url:{type:'string',format:'uri'},expiresIn:integer}),'200',{'410':response('The retained result has expired',ref('Error'))})
     },
+    '/jobs/{id}/edit':{
+      parameters:id,
+      post:{
+        ...operation('Create a new asynchronous job from a completed result',object({job:ref('Job')}),'202',{'410':response('The retained result has expired',ref('Error'))}),
+        requestBody:body(object({transformations:ref('Transformations')}))
+      }
+    },
     '/jobs/{id}/retry':{parameters:id,post:operation('Retry a terminally failed job',ref('Job'),'202')},
     '/jobs/{id}/cancel':{
       parameters:id,

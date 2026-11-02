@@ -8,10 +8,10 @@ import swagger from 'swagger-ui-express';
 import { randomUUID } from 'node:crypto';
 import { extname } from 'node:path';
 import { z } from 'zod';
-import { PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
+import { CopyObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { db, redis, queue, s3, signed, log } from './runtime.js';
 import { config } from './config.js';
-import { createJobs, listQuery } from './contracts.js';
+import { createJobs, editJob, listQuery } from './contracts.js';
 import { openapi } from './openapi.js';
 class HttpError extends Error { constructor(public status:number,message:string){super(message);} }
 const include={upload:true,audit:{orderBy:{createdAt:'asc' as const}}};
@@ -77,6 +77,37 @@ app.get('/api/v1/jobs',async(req,res)=>{
 });
 app.get('/api/v1/jobs/:id',async(req,res)=>res.json(await serialize(await getJob(req),true)));
 app.get('/api/v1/jobs/:id/download',async(req,res)=>{const job=await getJob(req);if(job.status!=='completed'||!job.outputKey)throw new HttpError(409,'Result is not available');if(job.completedAt&&job.completedAt.getTime()<Date.now()-config.RETENTION_DAYS*86400000)throw new HttpError(410,'Result has expired');res.json({url:await signed(config.S3_OUTPUT_BUCKET,job.outputKey,true),expiresIn:300});});
+app.post('/api/v1/jobs/:id/edit',async(req,res)=>{
+  const data=editJob.parse(req.body),source=await getJob(req);
+  if(source.status!=='completed'||!source.outputKey)throw new HttpError(409,'Only completed results can be edited');
+  if(source.completedAt&&source.completedAt.getTime()<Date.now()-config.RETENTION_DAYS*86400000)throw new HttpError(410,'Result has expired');
+  const metadata=z.object({
+    width:z.number().int().positive(),height:z.number().int().positive(),size:z.number().int().positive(),
+    format:z.enum(['jpeg','png','webp']),mime:z.enum(['image/jpeg','image/png','image/webp'])
+  }).safeParse(source.outputMetadata);
+  if(!metadata.success)throw new HttpError(409,'Completed result metadata is unavailable');
+  const uploadId=randomUUID(),extension=metadata.data.format==='jpeg'?'jpg':metadata.data.format;
+  const objectKey=`edits/${uploadId}/source.${extension}`;
+  const copySource=`${encodeURIComponent(config.S3_OUTPUT_BUCKET)}/${source.outputKey.split('/').map(encodeURIComponent).join('/')}`;
+  await s3.send(new CopyObjectCommand({Bucket:config.S3_ORIGINAL_BUCKET,Key:objectKey,CopySource:copySource}));
+  try{
+    const created=await db.$transaction(async tx=>{
+      const upload=await tx.upload.create({data:{
+        id:uploadId,objectKey,name:`${source.upload.name} (edit)`,mime:metadata.data.mime,
+        size:metadata.data.size,width:metadata.data.width,height:metadata.data.height
+      }});
+      return tx.job.create({data:{
+        uploadId:upload.id,transformations:data.transformations,
+        audit:{create:{type:'queued',message:`Accepted as a new edit of completed job ${source.id}`}}
+      },include});
+    });
+    res.status(202).json({job:await serialize(created)});
+  }catch(error){
+    try{await s3.send(new DeleteObjectCommand({Bucket:config.S3_ORIGINAL_BUCKET,Key:objectKey}));}
+    catch{log.warn({uploadId},'Failed to clean up copied edit source');}
+    throw error;
+  }
+});
 app.post('/api/v1/jobs/:id/retry',async(req,res)=>{
   const id=jobId(req);
   const job=await db.$transaction(async tx=>{

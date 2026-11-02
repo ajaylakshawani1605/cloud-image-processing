@@ -2,7 +2,7 @@
 
 **CloudFrame** is a functioning asynchronous image processing application for Advanced Cloud Computing: React → Nginx → Express → PostgreSQL outbox → BullMQ / Redis → Node bridge + Python Pillow → private MinIO output. Kubernetes scales the combined processing pods using KEDA.
 
-The application implements multiple uploads, real image transformations, persistent job history and audits, automatic and manual retries, result comparison, expiring downloads, API-derived dashboard statistics, service monitoring and an interactive eight-module architecture page. A generated demo image goes through the same real pipeline; no operational values are fabricated.
+The application implements multiple uploads, real image transformations, persistent job history and audits, automatic and manual retries, iterative editing of completed results, result comparison, expiring downloads, API-derived dashboard statistics, service monitoring and an interactive eight-module architecture page. A generated demo image goes through the same real pipeline; no operational values are fabricated.
 
 ## Project explanation and presentation
 

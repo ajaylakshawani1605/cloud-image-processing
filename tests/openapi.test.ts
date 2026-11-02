@@ -9,8 +9,9 @@ describe('OpenAPI schema and reference validation',()=>{
   it('validates every resource and resolves all internal schemas',async()=>{
     const document=await validate(clone());
     expect(document.openapi).toBe('3.0.3');
-    expect(Object.keys(document.paths??{})).toHaveLength(13);
+    expect(Object.keys(document.paths??{})).toHaveLength(14);
     expect(document.paths?.['/jobs']?.post?.responses?.['202']).toBeDefined();
+    expect(document.paths?.['/jobs/{id}/edit']?.post?.responses?.['202']).toBeDefined();
     expect(document.paths?.['/jobs/{id}/events']).toBeDefined();
   });
   it('rejects the previous malformed nesting of components under paths',async()=>{
