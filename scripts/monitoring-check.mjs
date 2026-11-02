@@ -1,0 +1,11 @@
+import 'dotenv/config';
+import assert from 'node:assert/strict';
+const prometheus=process.env.PROMETHEUS_URL||'http://localhost:9090';
+const grafana=process.env.GRAFANA_URL||'http://localhost:3002';
+const up=await (await fetch(`${prometheus}/api/v1/query?query=up%7Bjob%3D%22cloudframe-api%22%7D`)).json();
+assert.equal(up.status,'success');assert(up.data.result.some(row=>row.value[1]==='1'),'API scrape is not up');
+const health=await (await fetch(`${grafana}/api/health`)).json();assert.equal(health.database,'ok');
+assert(process.env.GRAFANA_ADMIN_PASSWORD,'GRAFANA_ADMIN_PASSWORD is required');
+const response=await fetch(`${grafana}/api/dashboards/uid/cloudframe`,{headers:{Authorization:'Basic '+Buffer.from('admin:'+process.env.GRAFANA_ADMIN_PASSWORD).toString('base64')}});
+assert(response.ok,`Dashboard provisioning check returned ${response.status}`);const {dashboard}=await response.json();assert.equal(dashboard.panels.length,5);
+console.log(JSON.stringify({apiScrape:'up',grafana:health.version,dashboard:dashboard.title,panels:dashboard.panels.length}));

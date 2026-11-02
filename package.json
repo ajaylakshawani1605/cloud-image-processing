@@ -1,0 +1,62 @@
+{
+  "name": "cloud-image-processing",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev:api": "tsx watch backend/src/server.ts",
+    "dev:bridge": "tsx queue-bridge/src/index.ts",
+    "build": "prisma generate --schema backend/prisma/schema.prisma && tsc && npm run build -w frontend",
+    "start:api": "node dist/backend/src/server.js",
+    "start:bridge": "node dist/queue-bridge/src/index.js",
+    "db:generate": "prisma generate --schema backend/prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema backend/prisma/schema.prisma",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:smoke": "node scripts/smoke.mjs",
+    "test:browser:install": "playwright install chromium",
+    "verify:infra": "node scripts/verify-infra.mjs",
+    "load": "node scripts/load.mjs",
+    "validate:openapi": "tsx scripts/validate-openapi.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1156.0",
+    "@aws-sdk/s3-request-presigner": "3.1156.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "bullmq": "5.61.2",
+    "cors": "2.8.5",
+    "dotenv": "17.2.3",
+    "express": "5.1.0",
+    "express-rate-limit": "8.7.1",
+    "helmet": "8.1.0",
+    "ioredis": "5.8.2",
+    "multer": "2.5.0",
+    "pino": "10.1.0",
+    "sharp": "0.35.5",
+    "swagger-ui-express": "5.0.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-parser": "12.1.0",
+    "@playwright/test": "1.56.1",
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.5",
+    "@types/multer": "2.0.0",
+    "@types/node": "22.18.10",
+    "@types/supertest": "6.0.3",
+    "@types/swagger-ui-express": "4.1.8",
+    "prisma": "7.10.1",
+    "supertest": "7.1.4",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12",
+    "yaml": "2.9.1"
+  },
+  "overrides": {
+    "vite": "7.3.7"
+  }
+}

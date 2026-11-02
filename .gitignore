@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+test-results/
+playwright-report/
+*.log
+.local/
+.local-audit.json
+*.tsbuildinfo
+backend/generated/
+Microsoft/
+docs/ACC lab.pdf

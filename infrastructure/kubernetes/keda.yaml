@@ -1,0 +1,27 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: image-workers
+  namespace: cloudframe
+spec:
+  scaleTargetRef: {name: worker}
+  pollingInterval: 5
+  cooldownPeriod: 60
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 120
+          policies: [{type: Pods, value: 1, periodSeconds: 60}]
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.cloudframe.svc.cluster.local:6379
+        listName: bull:images:wait
+        listLength: "3"
+        activationListLength: "0"
+        databaseIndex: "0"
+# Read-only length observation. BullMQ alone reserves and acknowledges jobs.
+# One minimum replica promotes delayed retries and handles stalled work, which are not in the wait list.

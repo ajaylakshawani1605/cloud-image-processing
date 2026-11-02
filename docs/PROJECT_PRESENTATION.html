@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CloudFrame — Project Implementation Summary</title>
+<meta name="description" content="Presentation summary of the implemented containerized image processing service with Kubernetes queue workers.">
+<style>
+  :root{--ink:#173e35;--green:#19785e;--mint:#ccebbd;--paper:#f6f8f5;--muted:#536b62;--line:#dce5dd;--gold:#e6bd65}
+  *{box-sizing:border-box}html,body{margin:0;padding:0;background:#e2e7e1;color:var(--ink);font-family:'Segoe UI',Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:1280px 720px;margin:0}
+  .slide{position:relative;width:1280px;height:720px;padding:44px 62px 55px;background:var(--paper);overflow:hidden;break-after:page;page-break-after:always}
+  .slide:last-child{break-after:auto;page-break-after:auto}.slide:before{content:'';position:absolute;top:0;left:0;width:100%;height:7px;background:var(--green)}
+  .kicker{margin:0 0 10px;color:var(--green);font-size:14px;font-weight:700;letter-spacing:2.4px;text-transform:uppercase}
+  h1,h2,h3,p{margin:0}h1{font-size:66px;line-height:1.04;letter-spacing:-2.8px;font-weight:700}h2{font-size:38px;line-height:1.14;letter-spacing:-1.1px;font-weight:650}
+  h3{font-size:21px;line-height:1.25;letter-spacing:-.35px}.lead{margin-top:11px;font-size:20px;line-height:1.45;color:var(--muted);max-width:1070px}
+  .body{margin-top:26px}.cols{display:grid;gap:28px}.two{grid-template-columns:1fr 1fr}.three{grid-template-columns:repeat(3,1fr)}.four{grid-template-columns:repeat(4,1fr)}
+  .card{border:1px solid var(--line);border-radius:14px;background:white;padding:22px}.card p{font-size:18px;line-height:1.45;color:var(--muted);margin-top:8px}
+  .soft{background:#eaf1e8}.dark{background:var(--ink);color:white;border-color:var(--ink)}.dark p{color:#c9dcd1}.dark h3{color:var(--mint)}
+  .label{font-size:13px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:var(--green)}.num{font-size:55px;line-height:1.05;font-weight:650;letter-spacing:-2px;color:var(--green)}
+  .note{font-size:15px;line-height:1.45;color:var(--muted)}.source{font-size:12px;line-height:1.4;color:var(--muted)}
+  .footer{position:absolute;left:62px;right:62px;bottom:22px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:11px;font-size:12px;color:var(--muted)}
+  .footer strong{letter-spacing:1.1px;font-size:11px}.footer .page{font-variant-numeric:tabular-nums}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}.chip{display:inline-block;padding:7px 12px;border:1px solid var(--line);border-radius:7px;background:white;font-size:14px;color:var(--ink)}
+  .callout{padding:15px 19px;background:#e7efe3;border-left:4px solid var(--green);border-radius:0 8px 8px 0;font-size:18px;line-height:1.4}
+  .mini{font-size:16px;line-height:1.45;color:var(--muted)}.sep{height:1px;background:var(--line);margin:17px 0}
+  .step{display:flex;gap:14px;margin-bottom:18px}.step b:first-child{display:flex;flex:0 0 32px;height:32px;border-radius:50%;align-items:center;justify-content:center;background:var(--green);color:white;font-size:16px}.step p{font-size:19px;line-height:1.4}.step small{display:block;color:var(--muted);font-size:17px;margin-top:4px}
+  .cover{background:var(--ink);color:white;padding-top:48px}.cover:before{background:var(--mint)}.cover .kicker{color:var(--mint)}.cover h1{margin-top:28px}.cover .subtitle{font-size:24px;line-height:1.45;max-width:620px;color:#cde0d6;margin-top:22px}
+  .cover .footer{color:#bad0c3;border-color:#426358}.cover .tag{display:inline-block;margin-top:25px;padding:9px 15px;border:1px solid #507467;border-radius:6px;font-size:15px;color:#dbe9de}
+  .cover-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:32px;align-items:center}.cover-art{height:382px;display:flex;align-items:center}.cover-bottom{position:absolute;left:62px;right:62px;bottom:85px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.cover-bottom div{padding-top:18px;border-top:1px solid #426358;font-size:18px;color:#dbe9de}.cover-bottom strong{color:var(--mint);display:block;margin-bottom:5px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase}
+  .screenshot{background:white;border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:0 8px 25px #173e3510}.screenshot svg{display:block;width:100%;height:auto}.caption{font-size:12px;color:var(--muted);margin-top:8px}
+  .product-grid{grid-template-columns: .92fr 1.08fr;gap:34px;margin-top:25px}.product-grid .step{margin-bottom:14px}.product-grid .step p{font-size:18px}.product-grid .step small{font-size:16px}.product-grid .chips{margin-top:15px}.product-grid .screenshot svg{height:405px}
+  .arch{display:block;width:100%;height:340px}.arch text{font-family:'Segoe UI',Arial,sans-serif}.arch .box{fill:white;stroke:#cbdacf;stroke-width:1.5}.arch .primary{fill:#173e35;stroke:#173e35}.arch .heading{font-size:19px;font-weight:650;fill:#173e35}.arch .sub{font-size:14px;fill:#536b62}.arch .light{fill:white}.arch .arrow{fill:none;stroke:#19785e;stroke-width:2.5;marker-end:url(#arr)}.arch .small{font-size:13px;fill:#19785e}
+  table{width:100%;border-collapse:collapse;font-size:18px;line-height:1.3}th{text-align:left;background:var(--ink);color:white;font-size:13px;text-transform:uppercase;letter-spacing:1.1px;padding:13px 16px}td{padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:top}tr:nth-child(even) td{background:#edf2e9}td:first-child{font-weight:650;white-space:nowrap;width:160px}td:nth-child(2){width:380px;color:var(--green);font-weight:600}
+  .tools{margin-top:17px;font-size:16px;line-height:1.55;color:var(--muted)}.tools strong{color:var(--ink)}
+  .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}.flow .card{padding:20px 17px;min-height:221px}.flow .n{font-size:13px;letter-spacing:1px;color:var(--green);font-weight:700;display:block;margin-bottom:16px}.flow h3{font-size:21px}.flow p{font-size:17px;line-height:1.45}.flow .arrow-label{font-size:13px;color:var(--green);margin-top:15px;font-weight:650}
+  .reliability{margin-top:23px;display:grid;grid-template-columns:repeat(3,1fr);gap:23px}.reliability h3{font-size:18px}.reliability p{font-size:16px;line-height:1.45;margin-top:7px;color:var(--muted)}
+  .scale-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:24px}.scale-main{padding:24px 28px}.scale-main .sequence{display:flex;justify-content:space-between;align-items:center;margin-top:19px}.scale-main .big{font-size:78px;line-height:1;font-weight:650;color:var(--mint)}.scale-main .arrow{font-size:40px;color:#a2baad}.scale-main .under{font-size:15px;color:#c4d8cc;margin-top:8px;text-align:center}.scale-side{display:grid;grid-template-columns:repeat(3,1fr);gap:0;align-items:center;text-align:center;padding:24px 12px}.scale-side .num{font-size:42px}.scale-side p{font-size:15px;padding:0 5px}.cloud-concepts .card{padding:20px}.cloud-concepts p{font-size:17px}
+  .limits .card{padding:23px 25px}.limits .num{font-size:65px}.limits h3{margin-top:11px}.limits p{font-size:17px}.limits-detail{margin-top:23px}.limits-detail h3{font-size:18px}.limits-detail p{font-size:17px;line-height:1.45;margin-top:8px;color:var(--muted)}
+  .test-cards .card{padding:20px 24px}.test-cards .num{font-size:52px}.test-cards h3{font-size:20px;margin-top:10px}.test-cards p{font-size:16px}.evidence{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:22px}.evidence .card{padding:18px 22px}.evidence h3{font-size:19px}.evidence p{font-size:17px;margin-top:8px}.evidence strong{color:var(--ink)}
+  code{font-family:Consolas,'Courier New',monospace}.command{padding:18px 22px;border-radius:9px;background:var(--ink);color:#e3f0e2;font:19px/1.5 Consolas,'Courier New',monospace}.demo-grid{grid-template-columns:1.04fr 1fr;gap:38px;margin-top:23px}.urls{padding:18px 24px}.url{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--line);font-size:17px}.url:last-child{border:0}.url span{color:var(--muted)}.url a{color:var(--green);text-decoration:none;font-weight:600}.demo-grid .step{margin-bottom:15px}.demo-grid .step p{font-size:18px}
+  .outcome{font-size:29px;line-height:1.4;letter-spacing:-.5px;color:var(--ink);max-width:1090px}.closing .card{padding:24px}.closing .card p{font-size:18px}.closing .item{display:block;margin-top:12px;line-height:1.4;color:var(--muted);font-size:18px}
+  @media screen{.slide{margin:24px auto;box-shadow:0 5px 25px #173e3520}}@media print{html,body{background:var(--paper)}}
+</style>
+</head>
+<body>
+
+<section class="slide cover" aria-label="1. Project introduction">
+  <p class="kicker">Advanced Cloud Computing · Implementation Summary</p>
+  <div class="cover-grid">
+    <div>
+      <h1>CloudFrame<br>Image processing<br>with queue workers.</h1>
+      <p class="subtitle">Containerized Image Processing Service<br>with Kubernetes Queue Workers</p>
+      <span class="tag">Presentation summary · 26 October 2026</span>
+    </div>
+    <div class="cover-art">
+      <svg viewBox="0 0 480 350" role="img" aria-label="Images pass through queued background workers to become processed results">
+        <defs><marker id="cover-arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="#ccebbd"/></marker></defs>
+        <circle cx="242" cy="172" r="149" fill="none" stroke="#355d4d"/><circle cx="242" cy="172" r="110" fill="none" stroke="#355d4d" stroke-dasharray="4 7"/>
+        <rect x="13" y="115" width="109" height="112" rx="16" fill="#eaf1e8"/>
+        <rect x="33" y="136" width="69" height="48" rx="5" fill="#a8ccaf"/><path d="M33 184L58 151L77 177L89 163L102 184" fill="#19785e"/><circle cx="87" cy="147" r="7" fill="#e6bd65"/>
+        <text x="67" y="208" text-anchor="middle" fill="#173e35" font-size="15" font-weight="600">Originals</text>
+        <path d="M126 171H180" stroke="#ccebbd" stroke-width="2" marker-end="url(#cover-arr)"/>
+        <rect x="187" y="103" width="112" height="134" rx="16" fill="#ccebbd"/>
+        <rect x="211" y="124" width="64" height="15" rx="5" fill="#19785e"/><rect x="211" y="147" width="64" height="15" rx="5" fill="#19785e"/><rect x="211" y="170" width="64" height="15" rx="5" fill="#19785e"/>
+        <text x="243" y="215" text-anchor="middle" fill="#173e35" font-size="15" font-weight="600">Workers</text>
+        <path d="M306 171H357" stroke="#ccebbd" stroke-width="2" marker-end="url(#cover-arr)"/>
+        <rect x="365" y="115" width="105" height="112" rx="16" fill="#eaf1e8"/><path d="M394 156L411 173L441 139" fill="none" stroke="#19785e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="418" y="208" text-anchor="middle" fill="#173e35" font-size="15" font-weight="600">Results</text>
+        <text x="243" y="58" text-anchor="middle" fill="#ccebbd" font-size="16">Redis queue + Kubernetes scaling</text>
+        <text x="243" y="296" text-anchor="middle" fill="#c4d8cc" font-size="15">Private storage · Persistent job history</text>
+      </svg>
+    </div>
+  </div>
+  <div class="cover-bottom"><div><strong>Product</strong>Upload, transform, preview, download</div><div><strong>Compute</strong>Background Node + Python workers</div><div><strong>Cloud pattern</strong>Queue-driven Kubernetes autoscaling</div></div>
+  <footer class="footer"><strong>CLOUDFRAME</strong><span>Local Compose and kind Kubernetes implementation</span><span class="page">01 / 10</span></footer>
+</section>
+
+<section class="slide" aria-label="2. What the application does">
+  <p class="kicker">01 · Purpose and user experience</p>
+  <h2>Turn uploaded images into downloadable results.</h2>
+  <p class="lead">The API accepts work quickly; background workers perform the expensive image processing.</p>
+  <div class="cols product-grid">
+    <div>
+      <div class="step"><b>1</b><p>Upload JPEG, PNG or WebP.<small>Select one image or a batch of up to eight.</small></p></div>
+      <div class="step"><b>2</b><p>Choose the transformations.<small>Resize, quality, format, rotation, grayscale, thumbnail and text watermark.</small></p></div>
+      <div class="step"><b>3</b><p>Submit and follow the job.<small>Queued → processing → completed, with persistent history and retry support.</small></p></div>
+      <div class="step"><b>4</b><p>Compare and download.<small>Original/result previews and a temporary private download link.</small></p></div>
+      <p class="label" style="margin-top:23px">Six implemented pages</p>
+      <div class="chips"><span class="chip">Dashboard</span><span class="chip">Process Images</span><span class="chip">Job History</span><span class="chip">Monitoring</span><span class="chip">Architecture</span><span class="chip">Settings</span></div>
+    </div>
+    <div>
+      <div class="screenshot"><svg viewBox="284 982 960 744" role="img" aria-label="Actual completed job showing original and processed image previews and a download button"><image href="screenshots/completed-job.png" width="1280" height="1815"/></svg></div>
+      <p class="caption">Actual Kubernetes browser-test capture · Generated demo fixture · Selected result panel</p>
+    </div>
+  </div>
+  <footer class="footer"><strong>CLOUDFRAME · PRODUCT</strong><span>One image becomes one independently tracked processing job.</span><span class="page">02 / 10</span></footer>
+</section>
+
+<section class="slide" aria-label="3. Implemented architecture">
+  <p class="kicker">02 · System architecture</p>
+  <h2>A request becomes a durable background job.</h2>
+  <p class="lead">Separate services handle the interface, validation, scheduling, computation, storage and monitoring.</p>
+  <svg class="arch body" viewBox="0 0 1156 340" role="img" aria-label="React through Nginx and Express to BullMQ and a Node Python worker, with PostgreSQL, MinIO, Prometheus and Grafana">
+    <defs><marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="#19785e"/></marker></defs>
+    <rect class="box" x="0" y="35" width="170" height="112" rx="12"/><text class="heading" x="85" y="78" text-anchor="middle">React client</text><text class="sub" x="85" y="108" text-anchor="middle">Upload + progress</text>
+    <rect class="box" x="212" y="35" width="155" height="112" rx="12"/><text class="heading" x="289" y="78" text-anchor="middle">Nginx</text><text class="sub" x="289" y="108" text-anchor="middle">Frontend + proxy</text>
+    <rect class="primary" x="409" y="35" width="196" height="112" rx="12"/><text class="heading light" x="507" y="77" text-anchor="middle">Express API</text><text class="sub light" x="507" y="107" text-anchor="middle">Validation + outbox</text>
+    <rect class="box" x="647" y="35" width="196" height="112" rx="12"/><text class="heading" x="745" y="77" text-anchor="middle">Redis / BullMQ</text><text class="sub" x="745" y="107" text-anchor="middle">Waiting jobs + locks</text>
+    <rect class="primary" x="885" y="35" width="267" height="112" rx="12"/><text class="heading light" x="1018" y="77" text-anchor="middle">Node + Python worker</text><text class="sub light" x="1018" y="107" text-anchor="middle">Reserve → transform → commit</text>
+    <path class="arrow" d="M172 91H205"/><path class="arrow" d="M369 91H402"/><path class="arrow" d="M607 91H640"/><path class="arrow" d="M845 91H878"/>
+    <text class="small" x="507" y="172" text-anchor="middle">Persist job before HTTP 202</text><path class="arrow" d="M507 181V219"/>
+    <rect class="box" x="409" y="226" width="196" height="90" rx="12"/><text class="heading" x="507" y="261" text-anchor="middle">PostgreSQL</text><text class="sub" x="507" y="288" text-anchor="middle">Jobs, outbox, audit</text>
+    <path class="arrow" d="M1018 149V219"/><text class="small" x="1034" y="195">Image files</text>
+    <rect class="box" x="885" y="226" width="267" height="90" rx="12"/><text class="heading" x="1018" y="261" text-anchor="middle">Private MinIO buckets</text><text class="sub" x="1018" y="288" text-anchor="middle">Originals + processed outputs</text>
+    <path class="arrow" d="M409 129H285V219"/><text class="small" x="294" y="196">API metrics</text>
+    <rect class="box" x="0" y="226" width="367" height="90" rx="12"/><text class="heading" x="183" y="261" text-anchor="middle">Prometheus + Grafana</text><text class="sub" x="183" y="288" text-anchor="middle">Measurements, dashboards, alerts</text>
+    <text class="small" x="745" y="236" text-anchor="middle">KEDA observes waiting work</text><text class="small" x="745" y="260" text-anchor="middle">and scales worker pods.</text>
+  </svg>
+  <div class="callout">The API and workers share PostgreSQL job state and private MinIO storage. The UI polls job status, then requests a signed result URL.</div>
+  <footer class="footer"><strong>CLOUDFRAME · ARCHITECTURE</strong><span>Compose and Kubernetes run separate stacks with separate data and queues.</span><span class="page">03 / 10</span></footer>
+</section>
+
+<section class="slide" aria-label="4. Technologies and responsibilities">
+  <p class="kicker">03 · Technology stack</p>
+  <h2>Each tool has a specific responsibility.</h2>
+  <div class="body">
+    <table aria-label="Technology roles">
+      <thead><tr><th>Layer</th><th>Technologies</th><th>Role in this implementation</th></tr></thead>
+      <tbody>
+        <tr><td>Interface</td><td>React, TypeScript, Vite, Tailwind</td><td>Typed dashboard, responsive controls and production frontend build.</td></tr>
+        <tr><td>API</td><td>Node.js, Express, Zod, Multer</td><td>HTTP endpoints, request validation and bounded multipart uploads.</td></tr>
+        <tr><td>Job queue</td><td>Redis, BullMQ, Node bridge</td><td>Deliver jobs, hold worker locks, schedule retries and acknowledge work.</td></tr>
+        <tr><td>Image compute</td><td>Python, Pillow, boto3</td><td>Decode and transform image bytes; read/write S3-compatible objects.</td></tr>
+        <tr><td>Persistent data</td><td>PostgreSQL, Prisma, MinIO</td><td>Relational jobs/audits plus private original and output files.</td></tr>
+        <tr><td>Deployment</td><td>Docker, Compose, Nginx, Kubernetes, KEDA</td><td>Package services, route traffic, run pods and scale worker replicas.</td></tr>
+        <tr><td>Observability</td><td>Prometheus, Grafana, Pino</td><td>Collect metrics, visualize service health and record structured logs.</td></tr>
+      </tbody>
+    </table>
+    <p class="tools"><strong>Supporting tools:</strong> Router, Axios and TanStack Query manage navigation and API state; Recharts draws activity charts; Sharp validates upload metadata. OpenAPI/Swagger document the API. Vitest, Supertest, pytest and Playwright verify behavior.</p>
+    <p class="tools"><strong>Local cluster:</strong> kind runs Kubernetes on Docker. kubectl/Kustomize deploy resources; Helm installs KEDA.</p>
+  </div>
+  <footer class="footer"><strong>CLOUDFRAME · TOOLS</strong><span>Python processes images; the Node bridge owns BullMQ consumption and database updates.</span><span class="page">04 / 10</span></footer>
+</section>
+
+<section class="slide" aria-label="5. Processing lifecycle and reliability">
+  <p class="kicker">04 · Processing and recovery</p>
+  <h2>Persist first. Process in the background. Recover.</h2>
+  <p class="lead">A durable PostgreSQL job row also acts as an outbox, separating job acceptance from Redis availability.</p>
+  <div class="flow body">
+    <div class="card"><span class="n">01 · UPLOAD</span><h3>Validate + store</h3><p>Check image type, size and dimensions. Store the original privately in MinIO.</p><div class="arrow-label">Original preserved →</div></div>
+    <div class="card"><span class="n">02 · ACCEPT</span><h3>Commit the job</h3><p>Save metadata and audit state in PostgreSQL. Return HTTP 202 and a job ID.</p><div class="arrow-label">Durable acceptance →</div></div>
+    <div class="card"><span class="n">03 · DISPATCH</span><h3>Publish to BullMQ</h3><p>The API reconciler publishes unfinished work at startup and every five seconds.</p><div class="arrow-label">Deterministic IDs →</div></div>
+    <div class="card"><span class="n">04 · EXECUTE</span><h3>Node → Python</h3><p>Node reserves the job and renews its lock. A bounded Python subprocess transforms it.</p><div class="arrow-label">JSON stdin/stdout →</div></div>
+    <div class="card"><span class="n">05 · COMPLETE</span><h3>Commit + deliver</h3><p>Upload output and commit completion before acknowledging the queue delivery.</p><div class="arrow-label">Preview + signed URL</div></div>
+  </div>
+  <div class="reliability">
+    <div><h3>Temporary failures</h3><p>Default three total attempts with exponential retry delays. The Python processing timeout defaults to 60 seconds.</p></div>
+    <div><h3>Worker interruption</h3><p>Expired reservations allow stalled work to be redelivered. Delivery is at least once; duplicate work is handled.</p></div>
+    <div><h3>Private results</h3><p>Unsigned objects are inaccessible. Signed download links expire after five minutes; default file retention is seven days.</p></div>
+  </div>
+  <footer class="footer"><strong>CLOUDFRAME · RELIABILITY</strong><span>Redis-outage recovery and actual worker-crash redelivery were exercised.</span><span class="page">05 / 10</span></footer>
+</section>
+
+<section class="slide" aria-label="6. Advanced cloud computing and autoscaling">
+  <p class="kicker">05 · Advanced cloud computing</p>
+  <h2>Scale processing capacity from queue demand.</h2>
+  <p class="lead">KEDA watches the actual BullMQ wait list and changes the Kubernetes worker Deployment replica count.</p>
+  <div class="scale-grid body">
+    <div class="card dark scale-main">
+      <p class="label" style="color:#ccebbd">Observed worker replicas · Actual recorded run</p>
+      <div class="sequence"><div><div class="big">1</div><div class="under">Before load</div></div><div class="arrow">→</div><div><div class="big">4</div><div class="under">During backlog</div></div><div class="arrow">→</div><div><div class="big">1</div><div class="under">After settling</div></div></div>
+    </div>
+    <div class="card scale-side"><div><div class="num">24/24</div><p>Jobs completed</p></div><div><div class="num">23</div><p>Peak waiting</p></div><div><div class="num">0</div><p>Failed jobs</p></div></div>
+  </div>
+  <p class="mini" style="margin:14px 0 21px"><strong>Configuration:</strong> <code>bull:images:wait</code> · target 3 waiting jobs/replica · min 1 / max 4 · polling every 5 seconds</p>
+  <div class="cols three cloud-concepts">
+    <div class="card"><h3>Containers + orchestration</h3><p>Docker packages services. Kubernetes manages pods, networking, readiness probes, resource limits and persistent volumes.</p></div>
+    <div class="card"><h3>Asynchronous elasticity</h3><p>The queue absorbs bursts. Additional combined Node/Python pods increase processing capacity while the API stays separate.</p></div>
+    <div class="card"><h3>Durability + visibility</h3><p>Persistent job state, outbox reconciliation, retries, metrics and audit trails make failures visible and recoverable.</p></div>
+  </div>
+  <footer class="footer"><strong>CLOUDFRAME · ELASTICITY</strong><span>Recorded verification: 25 Oct 2026. Local kind pods share the computer; this does not provision cloud VMs.</span><span class="page">06 / 10</span></footer>
+</section>
+
+<section class="slide" aria-label="7. Limits and monitoring explained">
+  <p class="kicker">06 · Understanding the dashboard</p>
+  <h2>Batch size, worker count and queue depth differ.</h2>
+  <p class="lead">These values describe separate parts of the system, so they do not need to match.</p>
+  <div class="cols three limits body">
+    <div class="card"><div class="num">8</div><h3>Images per batch</h3><p>A fixed UI and API limit bounds a single request and its memory use. Submit another batch for more images; it is not a total project limit.</p></div>
+    <div class="card"><div class="num">1</div><h3>Connected worker</h3><p>The default is one BullMQ consumer with concurrency one. Kubernetes can scale worker pods from one to four when waiting work builds up.</p></div>
+    <div class="card"><div class="num">0</div><h3>Queued work</h3><p>No waiting/delayed jobs at that moment. Check active work separately. When active is also zero, the workers are usually idle.</p></div>
+  </div>
+  <div class="cols three limits-detail">
+    <div><h3>File and pixel safeguards</h3><p>Default 10 MB per image and 25 million decoded pixels. Compressed file size alone does not describe processing memory.</p></div>
+    <div><h3>Different kinds of parallelism</h3><p>Batch size counts images submitted together. Concurrency counts jobs per worker. Replicas count worker pods.</p></div>
+    <div><h3>Reading metrics correctly</h3><p>Queue depth = waiting + delayed; active is separate. Progress values are lifecycle milestones, not continuous pixel-level percentages.</p></div>
+  </div>
+  <footer class="footer"><strong>CLOUDFRAME · MONITORING</strong><span>Worker count reports connected consumers; it is not a CPU utilization measurement.</span><span class="page">07 / 10</span></footer>
+</section>
+
+<section class="slide" aria-label="8. Verified implementation results">
+  <p class="kicker">07 · Evidence and verification</p>
+  <h2>Tested across API, images, browsers and containers.</h2>
+  <p class="lead">Recorded implementation verification · 25 October 2026 · Results below are from executed runs.</p>
+  <div class="cols three test-cards body">
+    <div class="card"><div class="num">18 passed</div><h3>API / outbox / OpenAPI</h3><p>Express boundaries, recovery logic and parser regressions. OpenAPI validates 13 documented paths.</p></div>
+    <div class="card"><div class="num">16 passed</div><h3>Python image processing</h3><p>Actual Pillow transforms and encoders, including tests inside the deployed Python 3.12 worker image.</p></div>
+    <div class="card"><div class="num">7 + 7 passed</div><h3>Playwright browsers</h3><p>Seven cases on Compose and seven on Kubernetes, including desktop/mobile and all six pages.</p></div>
+  </div>
+  <div class="evidence">
+    <div class="card"><h3>Real pipeline and load</h3><p>Uploads, selected transformations, HTTP 202 jobs, progress, previews and signed image bytes. <strong>Compose: 30/30 jobs.</strong> <strong>KEDA: 24/24 jobs, 1 → 4 → 1 workers.</strong></p></div>
+    <div class="card"><h3>Recovery and infrastructure</h3><p>Redis outage and worker SIGKILL recovery passed. Compose and kind ran successfully. <strong>18 YAML/JSON files</strong>, Kustomize, Prometheus and Grafana checks passed.</p></div>
+  </div>
+  <p class="source" style="margin-top:15px">Source: docs/PROGRESS.md, final verified state and requested follow-up verification. API boundary tests mock external stores; live browser cases exercise real services. The browser suites include two explicit offline UI cases. No runtime tests were rerun solely to create this presentation.</p>
+  <footer class="footer"><strong>CLOUDFRAME · VERIFIED RESULTS</strong><span>Earlier actual autoscaling and fault-injection runs were retained; the latest follow-up did not repeat that load.</span><span class="page">08 / 10</span></footer>
+</section>
+
+<section class="slide" aria-label="9. Presentation demonstration">
+  <p class="kicker">08 · Live demonstration</p>
+  <h2>A short demo makes the architecture visible.</h2>
+  <p class="lead">Windows PowerShell · Run from the project folder with Docker Desktop using Linux containers.</p>
+  <div class="command body">docker compose --profile monitoring up --build -d</div>
+  <div class="cols demo-grid">
+    <div>
+      <div class="step"><b>1</b><p>Open Process Images and choose a demo image.</p></div>
+      <div class="step"><b>2</b><p>Select width, output format and an effect.</p></div>
+      <div class="step"><b>3</b><p>Submit; show queued → processing → completed.</p></div>
+      <div class="step"><b>4</b><p>Compare previews and download the actual file.</p></div>
+      <div class="step"><b>5</b><p>Show Job History, Monitoring and Grafana.</p></div>
+      <p class="mini"><strong>Autoscaling extension:</strong> use the separate kind workload and replica watch commands in <code>docs/KUBERNETES.md</code>. Compose jobs do not enter the Kubernetes queue.</p>
+    </div>
+    <div>
+      <div class="card urls">
+        <div class="url"><span>Frontend</span><a href="http://localhost:8080">localhost:8080</a></div>
+        <div class="url"><span>API / Swagger</span><a href="http://localhost:3000/api/v1/docs">:3000/api/v1/docs</a></div>
+        <div class="url"><span>MinIO console</span><a href="http://localhost:9001">localhost:9001</a></div>
+        <div class="url"><span>MinIO S3</span><a href="http://localhost:9000">localhost:9000</a></div>
+        <div class="url"><span>Prometheus</span><a href="http://localhost:9090">localhost:9090</a></div>
+        <div class="url"><span>Grafana</span><a href="http://localhost:3002">localhost:3002</a></div>
+      </div>
+      <p class="source" style="margin-top:12px">Use the existing .env. If absent, create it from .env.example. Credentials are configured there; this presentation does not expose them. First-time image builds may take several minutes.</p>
+    </div>
+  </div>
+  <footer class="footer"><strong>CLOUDFRAME · DEMO</strong><span>These are the default Compose URLs. Kubernetes access was verified using port-forwarding.</span><span class="page">09 / 10</span></footer>
+</section>
+
+<section class="slide" aria-label="10. Outcome and remaining limitations">
+  <p class="kicker">09 · Outcome and boundaries</p>
+  <h2>A functioning local demonstration of cloud patterns.</h2>
+  <p class="outcome body">CloudFrame connects a usable image editor to durable asynchronous jobs, private storage, failure recovery and observed Kubernetes worker scaling.</p>
+  <div class="cols two closing" style="margin-top:27px">
+    <div class="card soft"><h3>Implemented and demonstrated</h3><span class="item">Six-page responsive application and real image transformations.</span><span class="item">Container processing, persistent history, private previews and downloads.</span><span class="item">Actual recovery tests, observability and KEDA scaling from one to four workers.</span></div>
+    <div class="card"><h3>Current limitations and next steps</h3><span class="item">Local single-tenant academic deployment; public cloud hosting is not demonstrated.</span><span class="item">Add authentication, ownership checks, TLS, secret management, HA and backups for public use.</span><span class="item">Cancellation is unsupported (409). Optional Ingress and ELK were not deployed/exercised.</span></div>
+  </div>
+  <div class="callout" style="margin-top:24px"><strong>Presentation takeaway:</strong> the queue decouples requests from compute; Kubernetes and KEDA adjust the number of processing workers.</div>
+  <p class="source" style="margin-top:13px">Further reading: README.md · docs/PROJECT_EXPLANATION.md · docs/ARCHITECTURE.md · docs/API.md · docs/KUBERNETES.md · docs/PROGRESS.md</p>
+  <footer class="footer"><strong>CLOUDFRAME · ADVANCED CLOUD COMPUTING</strong><span>Implementation summary prepared 26 October 2026</span><span class="page">10 / 10</span></footer>
+</section>
+</body>
+</html>

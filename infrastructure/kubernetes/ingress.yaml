@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cloudframe
+  namespace: cloudframe
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 84m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "130"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: cloudframe.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: {service: {name: frontend, port: {number: 8080}}}

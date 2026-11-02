@@ -1,0 +1,18 @@
+groups:
+  - name: cloudframe
+    rules:
+      - alert: CloudFrameAPIDown
+        expr: up{job="cloudframe-api"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "CloudFrame metrics endpoint is unavailable"}
+      - alert: ImageQueueBacklog
+        expr: queue_depth > 20
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: "Image processing backlog remains above 20 jobs"}
+      - alert: ImageJobsNeedAttention
+        expr: failed_jobs_total > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: "Terminally failed image jobs need review"}
